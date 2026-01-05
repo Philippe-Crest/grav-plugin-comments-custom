@@ -316,10 +316,16 @@ class CommentsPlugin extends Plugin
 
             for ($i = 0; $i < count($data['comments']); $i++) {
                 $commentTimestamp = \DateTime::createFromFormat('D, d M Y H:i:s', $data['comments'][$i]['date'])->getTimestamp();
+                $cidSource = $file->filePath
+                    . '|' . (string) ($data['comments'][$i]['date'] ?? '')
+                    . '|' . (string) ($data['comments'][$i]['author'] ?? '')
+                    . '|' . (string) ($data['comments'][$i]['email'] ?? '')
+                    . '|' . (string) ($data['comments'][$i]['text'] ?? '');
 
                 $data['comments'][$i]['pageTitle'] = $data['title'];
                 $data['comments'][$i]['filePath'] = $file->filePath;
                 $data['comments'][$i]['timestamp'] = $commentTimestamp;
+                $data['comments'][$i]['cid'] = substr(sha1($cidSource), 0, 12);
             }
             if (count($data['comments'])) {
                 $comments = array_merge($comments, $data['comments']);
