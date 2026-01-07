@@ -500,13 +500,20 @@ class CommentsPlugin extends Plugin
             Folder::mkdir($trashDir);
         }
 
-        $trashData = file_exists($trashPath)
-            ? Yaml::parse(file_get_contents($trashPath))
-            : [
-                'title' => $data['title'] ?? null,
-                'lang' => $data['lang'] ?? null,
-                'comments' => [],
-            ];
+        $trashDataBefore = null;
+        $trashFileExists = file_exists($trashPath);
+        if ($trashFileExists) {
+            $trashDataBefore = Yaml::parse(file_get_contents($trashPath));
+            if (!is_array($trashDataBefore)) {
+                $trashDataBefore = null;
+            }
+        }
+
+        $trashData = $trashDataBefore ?? [
+            'title' => $data['title'] ?? null,
+            'lang' => $data['lang'] ?? null,
+            'comments' => [],
+        ];
 
         if (!is_array($trashData)) {
             $trashData = [
@@ -536,13 +543,55 @@ class CommentsPlugin extends Plugin
         try {
             $activeFile->save(Yaml::dump($data));
         } catch (\Throwable $e) {
-            return ['success' => false, 'message' => 'Failed to update active comments file: ' . $e->getMessage()];
+            $rollbackStatus = $this->rollbackTrashAfterActiveFailure($trashPath, $trashDataBefore, $trashFileExists);
+            return [
+                'success' => false,
+                'message' => $this->formatRollbackFailureMessage($rollbackStatus),
+            ];
         }
         if (!file_exists($activePath)) {
-            return ['success' => false, 'message' => 'Failed to update active comments file (file missing after save).'];
+            $rollbackStatus = $this->rollbackTrashAfterActiveFailure($trashPath, $trashDataBefore, $trashFileExists);
+            return [
+                'success' => false,
+                'message' => $this->formatRollbackFailureMessage($rollbackStatus),
+            ];
         }
 
         return ['success' => true, 'message' => 'Comment moved to trash.'];
+    }
+
+    /**
+     * Best-effort rollback of trash after active file failure.
+     */
+    private function rollbackTrashAfterActiveFailure(string $trashPath, ?array $trashDataBefore, bool $trashFileExists): string
+    {
+        if ($trashDataBefore === null) {
+            if ($trashFileExists) {
+                return 'skipped';
+            }
+            if (file_exists($trashPath)) {
+                return unlink($trashPath) ? 'ok' : 'failed';
+            }
+            return 'failed';
+        }
+
+        $bytes = file_put_contents($trashPath, Yaml::dump($trashDataBefore), LOCK_EX);
+        return $bytes !== false ? 'ok' : 'failed';
+    }
+
+    /**
+     * Format the rollback status message after active file failure.
+     */
+    private function formatRollbackFailureMessage(string $rollbackStatus): string
+    {
+        if ($rollbackStatus === 'ok') {
+            return 'Failed to update active file; trash rollback succeeded. Comment should not be duplicated.';
+        }
+        if ($rollbackStatus === 'skipped') {
+            return 'Failed to update active file; trash rollback impossible. Comment may still exist in both locations.';
+        }
+
+        return 'Failed to update active file; trash rollback attempted (status: failed). Comment may still exist in both locations.';
     }
 
     /**
