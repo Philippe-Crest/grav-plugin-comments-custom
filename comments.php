@@ -214,6 +214,11 @@ class CommentsPlugin extends Plugin
             $this->grav['admin']->redirect($this->route);
             return;
         }
+        if (!preg_match('~^[A-Za-z0-9/_\\-.]+\\.yaml$~', $relPath)) {
+            $this->grav['admin']->setMessage('Invalid comment path.', 'error');
+            $this->grav['admin']->redirect($this->route);
+            return;
+        }
 
         $result = $this->trashCommentByCid($relPath, $cid);
         $this->grav['admin']->setMessage(
@@ -374,6 +379,9 @@ class CommentsPlugin extends Plugin
                 $commentTimestamp = \DateTime::createFromFormat('D, d M Y H:i:s', $data['comments'][$i]['date'])->getTimestamp();
                 $activePath = $file->filePath;
                 $relPath = $this->getRelPathFromActivePath($activePath);
+                if ($relPath === '') {
+                    continue;
+                }
                 $cidSource = $activePath
                     . '|' . (string) ($data['comments'][$i]['date'] ?? '')
                     . '|' . (string) ($data['comments'][$i]['author'] ?? '')
@@ -547,7 +555,7 @@ class CommentsPlugin extends Plugin
             return ltrim(substr($filePath, strlen($activeRoot)), '/');
         }
 
-        return ltrim($filePath, '/');
+        return '';
     }
 
 
