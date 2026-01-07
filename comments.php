@@ -150,6 +150,7 @@ class CommentsPlugin extends Plugin
             'onTwigTemplatePaths' => ['onTwigAdminTemplatePaths', 0],
             'onAdminMenu' => ['onAdminMenu', 0],
             'onDataTypeExcludeFromDataManagerPluginHook' => ['onDataTypeExcludeFromDataManagerPluginHook', 0],
+            'onTask.trashComment' => ['onTaskTrashComment', 0],
         ]);
 
         if (strpos($uri->path(), $this->config->get('plugins.admin.route') . '/' . $this->route) === false) {
@@ -166,6 +167,55 @@ class CommentsPlugin extends Plugin
 
         $this->grav['twig']->comments = $comments;
         $this->grav['twig']->pages = $this->fetchPages();
+    }
+
+    /**
+     * Handle trash comment task (POST).
+     */
+    public function onTaskTrashComment(Event $event)
+    {
+        if (!$this->isPluginActiveAdmin($this->route)) {
+            return;
+        }
+
+        $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
+        $url = $this->grav['uri']->url();
+        $postTask = (string) $this->grav['uri']->post('task');
+        $eventTask = isset($event['task']) ? (string) $event['task'] : '';
+        $postCid = (string) $this->grav['uri']->post('cid');
+        $postFilePath = (string) $this->grav['uri']->post('filePath');
+
+        if ($this->grav['config']->get('plugins.comments.debug_tasks')) {
+            $this->grav['log']->info(
+                'Comments task debug: url=' . $url
+                . ' method=' . $method
+                . ' post_task=' . $postTask
+                . ' event_task=' . $eventTask
+                . ' post_cid=' . $postCid
+                . ' post_filePath=' . $postFilePath
+            );
+            $this->grav['admin']->setMessage(
+                'DEBUG: onTask.trashComment reached, task=' . ($postTask ?: $eventTask),
+                'info'
+            );
+        }
+
+        $cid = $postCid;
+        $filePath = $postFilePath;
+
+        if ($cid === '' || $filePath === '') {
+            $this->grav['admin']->setMessage('Missing comment identifier.', 'error');
+            $this->grav['admin']->redirect($this->route);
+            return;
+        }
+
+        $result = $this->trashCommentByCid($filePath, $cid);
+        $this->grav['admin']->setMessage(
+            $result['message'],
+            $result['success'] ? 'success' : 'error'
+        );
+        $this->grav['admin']->redirect($this->route);
+        $event->stopPropagation();
     }
 
     /**
@@ -388,6 +438,108 @@ class CommentsPlugin extends Plugin
         }
 
         return $pages;
+    }
+
+    /**
+     * Move a comment from active storage to trash by cid.
+     */
+    public function trashCommentByCid(string $filePath, string $cid): array
+    {
+        if (!file_exists($filePath)) {
+            return ['success' => false, 'message' => 'Active comments file not found.'];
+        }
+
+        $data = Yaml::parse(file_get_contents($filePath));
+        if (!is_array($data) || !isset($data['comments']) || !is_array($data['comments'])) {
+            return ['success' => false, 'message' => 'No comments found in active file.'];
+        }
+
+        $targetIndex = null;
+        $targetComment = null;
+
+        foreach ($data['comments'] as $index => $comment) {
+            $cidSource = $filePath
+                . '|' . (string) ($comment['date'] ?? '')
+                . '|' . (string) ($comment['author'] ?? '')
+                . '|' . (string) ($comment['email'] ?? '')
+                . '|' . (string) ($comment['text'] ?? '');
+
+            if (substr(sha1($cidSource), 0, 12) === $cid) {
+                $targetIndex = $index;
+                $targetComment = $comment;
+                break;
+            }
+        }
+
+        if ($targetIndex === null) {
+            return ['success' => false, 'message' => 'Comment not found.'];
+        }
+
+        $trashPath = $this->getTrashPathFromActivePath($filePath);
+        $trashDir = dirname($trashPath);
+        if (!file_exists($trashDir)) {
+            Folder::mkdir($trashDir);
+        }
+
+        $trashData = file_exists($trashPath)
+            ? Yaml::parse(file_get_contents($trashPath))
+            : [
+                'title' => $data['title'] ?? null,
+                'lang' => $data['lang'] ?? null,
+                'comments' => [],
+            ];
+
+        if (!is_array($trashData)) {
+            $trashData = [
+                'title' => $data['title'] ?? null,
+                'lang' => $data['lang'] ?? null,
+                'comments' => [],
+            ];
+        }
+        if (!isset($trashData['comments']) || !is_array($trashData['comments'])) {
+            $trashData['comments'] = [];
+        }
+
+        $trashData['comments'][] = $targetComment;
+
+        $trashFile = File::instance($trashPath);
+        try {
+            $trashFile->save(Yaml::dump($trashData));
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Failed to write trash file: ' . $e->getMessage()];
+        }
+        if (!file_exists($trashPath)) {
+            return ['success' => false, 'message' => 'Failed to write trash file (file missing after save).'];
+        }
+
+        array_splice($data['comments'], $targetIndex, 1);
+        $activeFile = File::instance($filePath);
+        try {
+            $activeFile->save(Yaml::dump($data));
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Failed to update active comments file: ' . $e->getMessage()];
+        }
+        if (!file_exists($filePath)) {
+            return ['success' => false, 'message' => 'Failed to update active comments file (file missing after save).'];
+        }
+
+        return ['success' => true, 'message' => 'Comment moved to trash.'];
+    }
+
+    /**
+     * Map an active comments file path to its trash counterpart.
+     */
+    private function getTrashPathFromActivePath(string $filePath): string
+    {
+        $activeRoot = DATA_DIR . 'comments';
+        $trashRoot = DATA_DIR . 'comments-trash';
+
+        if (Utils::startsWith($filePath, $activeRoot)) {
+            $relativePath = substr($filePath, strlen($activeRoot));
+            return $trashRoot . $relativePath;
+        }
+
+        return $trashRoot . '/' . ltrim($filePath, '/');
     }
 
 

@@ -31,6 +31,7 @@
 
         .comment { flex: 3 }
         .details { flex: 1.5 }
+        .comments-actions { flex: 0.5 }
 
         .center {
             margin: 0 auto;
@@ -51,6 +52,8 @@
     <script>
         $(function() {
             var currentPage = 0;
+            var commentsActionUrl = '{{ grav.config.plugins.admin.route }}/comments';
+            var adminNonce = '{{ admin.getNonce("admin-form") }}';
 
             $(document).on('click tap', '.js__load-more', function(event) {
                $.getJSON(window.location + '/page:' + (currentPage + 1))
@@ -58,11 +61,20 @@
                     currentPage = parseInt(response.page);
 
                     response.comments.forEach(function(comment) {
+                        var formHtml = '<form method="post" action="' + commentsActionUrl + '" style="display:inline">' +
+                            '<input type="hidden" name="task" value="trashComment">' +
+                            '<input type="hidden" name="cid" value="' + $('<div/>').text(comment.cid).html() + '">' +
+                            '<input type="hidden" name="filePath" value="' + $('<div/>').text(comment.filePath).html() + '">' +
+                            '<input type="hidden" name="admin-nonce" value="' + $('<div/>').text(adminNonce).html() + '">' +
+                            '<button type="submit" class="button button-small button-danger" onclick="return confirm(\\'Supprimer ce commentaire ?\\');">Supprimer</button>' +
+                            '</form>';
+
                         $('.js__comments-container').append('<tr>' +
                                 '<td class="e author">' + comment.author + '</td>' +
                                 '<td class="v comment">' + comment.text + '</td>' +
                                 '<td class="v details"><strong>Page</strong>: ' + comment.pageTitle + '<br>' +
                                 '<strong>Date</strong>: ' + comment.date + ' <span class="comment-cid">' + comment.cid + '</span></td>' +
+                                '<td class="v comments-actions">' + formHtml + '</td>' +
                             '</tr>');
                     })
 
@@ -91,6 +103,7 @@
                     <th class="author">Author</th>
                     <th class="comment">Comment</th>
                     <th class="details">Details</th>
+                    <th class="comments-actions">Actions</th>
                 </tr>
                 {% for comment in grav.twig.comments.comments %}
                     <tr>
@@ -98,6 +111,17 @@
                         <td class="comment">{{comment.text}}</td>
                         <td class="details"><strong>Page</strong>: {{comment.pageTitle}}<br>
                         <strong>Date</strong>: {{comment.date}} <span class="comment-cid">{{comment.cid}}</span></td>
+                        <td class="comments-actions">
+                            <form method="post" action="{{ grav.config.plugins.admin.route ~ '/comments' }}" style="display:inline">
+                                <input type="hidden" name="task" value="trashComment">
+                                <input type="hidden" name="cid" value="{{ comment.cid|e('html_attr') }}">
+                                <input type="hidden" name="filePath" value="{{ comment.filePath|e('html_attr') }}">
+                                <input type="hidden" name="admin-nonce" value="{{ admin.getNonce('admin-form')|e('html_attr') }}">
+                                <button type="submit" class="button button-small button-danger" onclick="return confirm('Supprimer ce commentaire ?');">
+                                    Supprimer
+                                </button>
+                            </form>
+                        </td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -136,4 +160,3 @@
     {% endif %}
 
 {% endblock %}
-
