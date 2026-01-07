@@ -55,25 +55,35 @@
             var commentsActionUrl = '{{ grav.config.plugins.admin.route }}/comments';
             var adminNonce = '{{ admin.getNonce("admin-form") }}';
 
+            function escHtml(value) {
+                return $('<div/>').text(value == null ? '' : String(value)).html();
+            }
+
+            $(document).on('submit', 'form.js-delete-comment', function () {
+                return confirm('Supprimer ce commentaire ?');
+            });
+
             $(document).on('click tap', '.js__load-more', function(event) {
-               $.getJSON(window.location + '/page:' + (currentPage + 1))
-                .success(function(response) {
+               event.preventDefault();
+
+               $.getJSON(window.location.pathname + '/page:' + (currentPage + 1))
+                .done(function(response) {
                     currentPage = parseInt(response.page);
 
                     response.comments.forEach(function(comment) {
-                        var formHtml = '<form method="post" action="' + commentsActionUrl + '" style="display:inline">' +
+                        var formHtml = '<form method="post" action="' + commentsActionUrl + '" class="js-delete-comment" style="display:inline">' +
                             '<input type="hidden" name="task" value="trashComment">' +
-                            '<input type="hidden" name="cid" value="' + $('<div/>').text(comment.cid).html() + '">' +
-                            '<input type="hidden" name="relPath" value="' + $('<div/>').text(comment.relPath).html() + '">' +
-                            '<input type="hidden" name="admin-nonce" value="' + $('<div/>').text(adminNonce).html() + '">' +
-                            '<button type="submit" class="button button-small button-danger" onclick="return confirm(\\'Supprimer ce commentaire ?\\');">Supprimer</button>' +
+                            '<input type="hidden" name="cid" value="' + escHtml(comment.cid) + '">' +
+                            '<input type="hidden" name="relPath" value="' + escHtml(comment.relPath) + '">' +
+                            '<input type="hidden" name="admin-nonce" value="' + escHtml(adminNonce) + '">' +
+                            '<button type="submit" class="button button-small button-danger">Supprimer</button>' +
                             '</form>';
 
                         $('.js__comments-container').append('<tr>' +
-                                '<td class="e author">' + comment.author + '</td>' +
-                                '<td class="v comment">' + comment.text + '</td>' +
-                                '<td class="v details"><strong>Page</strong>: ' + comment.pageTitle + '<br>' +
-                                '<strong>Date</strong>: ' + comment.date + ' <span class="comment-cid">' + comment.cid + '</span></td>' +
+                                '<td class="e author">' + escHtml(comment.author) + '</td>' +
+                                '<td class="v comment">' + escHtml(comment.text) + '</td>' +
+                                '<td class="v details"><strong>Page</strong>: ' + escHtml(comment.pageTitle) + '<br>' +
+                                '<strong>Date</strong>: ' + escHtml(comment.date) + ' <span class="comment-cid">' + escHtml(comment.cid) + '</span></td>' +
                                 '<td class="v comments-actions">' + formHtml + '</td>' +
                             '</tr>');
                     })
@@ -87,8 +97,9 @@
                         $('.js__load-more').hide();
                     }
                 })
-                .error(function() {
-                    alert('Unexpected error');
+                .fail(function(jqxhr) {
+                    console.error('Load more failed', jqxhr);
+                    alert('Impossible de charger plus de commentaires.');
                 });
             });
         });
@@ -112,12 +123,12 @@
                         <td class="details"><strong>Page</strong>: {{comment.pageTitle}}<br>
                         <strong>Date</strong>: {{comment.date}} <span class="comment-cid">{{comment.cid}}</span></td>
                         <td class="comments-actions">
-                            <form method="post" action="{{ grav.config.plugins.admin.route ~ '/comments' }}" style="display:inline">
+                            <form method="post" action="{{ grav.config.plugins.admin.route ~ '/comments' }}" class="js-delete-comment" style="display:inline">
                                 <input type="hidden" name="task" value="trashComment">
                                 <input type="hidden" name="cid" value="{{ comment.cid|e('html_attr') }}">
                                 <input type="hidden" name="relPath" value="{{ comment.relPath|e('html_attr') }}">
                                 <input type="hidden" name="admin-nonce" value="{{ admin.getNonce('admin-form')|e('html_attr') }}">
-                                <button type="submit" class="button button-small button-danger" onclick="return confirm('Supprimer ce commentaire ?');">
+                                <button type="submit" class="button button-small button-danger">
                                     Supprimer
                                 </button>
                             </form>

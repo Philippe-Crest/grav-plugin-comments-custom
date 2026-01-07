@@ -373,7 +373,11 @@ class CommentsPlugin extends Plugin
         $comments = [];
 
         foreach($files as $file) {
-            $data = Yaml::parse(file_get_contents($file->filePath));
+            $relPath = $this->getRelPathFromActivePath($file->filePath);
+            $data = $this->getDataFromFilename('/' . $relPath);
+            if (!is_array($data) || empty($data['comments'])) {
+                continue;
+            }
 
             for ($i = 0; $i < count($data['comments']); $i++) {
                 $commentTimestamp = \DateTime::createFromFormat('D, d M Y H:i:s', $data['comments'][$i]['date'])->getTimestamp();
@@ -621,7 +625,19 @@ class CommentsPlugin extends Plugin
             return;
         }
 
-        return Yaml::parse($fileInstance->content());
+        $data = Yaml::parse($fileInstance->content());
+        if (is_array($data) && isset($data['comments']) && is_array($data['comments'])) {
+            foreach ($data['comments'] as $index => $comment) {
+                if (!empty($comment['text']) && is_string($comment['text'])) {
+                    $data['comments'][$index]['text'] = html_entity_decode(
+                        $comment['text'],
+                        ENT_QUOTES | ENT_HTML5,
+                        'UTF-8'
+                    );
+                }
+            }
+        }
+        return $data;
     }
 
     /**
