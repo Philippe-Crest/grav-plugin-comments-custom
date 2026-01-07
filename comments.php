@@ -183,7 +183,7 @@ class CommentsPlugin extends Plugin
         $postTask = (string) $this->grav['uri']->post('task');
         $eventTask = isset($event['task']) ? (string) $event['task'] : '';
         $postCid = (string) $this->grav['uri']->post('cid');
-        $postFilePath = (string) $this->grav['uri']->post('filePath');
+        $postRelPath = (string) $this->grav['uri']->post('relPath');
 
         if ($this->grav['config']->get('plugins.comments.debug_tasks')) {
             $this->grav['log']->info(
@@ -201,15 +201,21 @@ class CommentsPlugin extends Plugin
         }
 
         $cid = $postCid;
-        $filePath = $postFilePath;
+        $relPath = $postRelPath;
 
-        if ($cid === '' || $filePath === '') {
+        if ($cid === '' || $relPath === '') {
             $this->grav['admin']->setMessage('Missing comment identifier.', 'error');
             $this->grav['admin']->redirect($this->route);
             return;
         }
 
-        $result = $this->trashCommentByCid($filePath, $cid);
+        if (strpos($relPath, '..') !== false || Utils::startsWith($relPath, '/') || strpos($relPath, '\\') !== false) {
+            $this->grav['admin']->setMessage('Invalid comment path.', 'error');
+            $this->grav['admin']->redirect($this->route);
+            return;
+        }
+
+        $result = $this->trashCommentByCid($relPath, $cid);
         $this->grav['admin']->setMessage(
             $result['message'],
             $result['success'] ? 'success' : 'error'
@@ -366,14 +372,17 @@ class CommentsPlugin extends Plugin
 
             for ($i = 0; $i < count($data['comments']); $i++) {
                 $commentTimestamp = \DateTime::createFromFormat('D, d M Y H:i:s', $data['comments'][$i]['date'])->getTimestamp();
-                $cidSource = $file->filePath
+                $activePath = $file->filePath;
+                $relPath = $this->getRelPathFromActivePath($activePath);
+                $cidSource = $activePath
                     . '|' . (string) ($data['comments'][$i]['date'] ?? '')
                     . '|' . (string) ($data['comments'][$i]['author'] ?? '')
                     . '|' . (string) ($data['comments'][$i]['email'] ?? '')
                     . '|' . (string) ($data['comments'][$i]['text'] ?? '');
 
                 $data['comments'][$i]['pageTitle'] = $data['title'];
-                $data['comments'][$i]['filePath'] = $file->filePath;
+                $data['comments'][$i]['filePath'] = $activePath;
+                $data['comments'][$i]['relPath'] = $relPath;
                 $data['comments'][$i]['timestamp'] = $commentTimestamp;
                 $data['comments'][$i]['cid'] = substr(sha1($cidSource), 0, 12);
             }
@@ -443,13 +452,16 @@ class CommentsPlugin extends Plugin
     /**
      * Move a comment from active storage to trash by cid.
      */
-    public function trashCommentByCid(string $filePath, string $cid): array
+    public function trashCommentByCid(string $relPath, string $cid): array
     {
-        if (!file_exists($filePath)) {
+        $activePath = DATA_DIR . 'comments/' . ltrim($relPath, '/');
+        $trashPath = DATA_DIR . 'comments-trash/' . ltrim($relPath, '/');
+
+        if (!file_exists($activePath)) {
             return ['success' => false, 'message' => 'Active comments file not found.'];
         }
 
-        $data = Yaml::parse(file_get_contents($filePath));
+        $data = Yaml::parse(file_get_contents($activePath));
         if (!is_array($data) || !isset($data['comments']) || !is_array($data['comments'])) {
             return ['success' => false, 'message' => 'No comments found in active file.'];
         }
@@ -458,7 +470,7 @@ class CommentsPlugin extends Plugin
         $targetComment = null;
 
         foreach ($data['comments'] as $index => $comment) {
-            $cidSource = $filePath
+            $cidSource = $activePath
                 . '|' . (string) ($comment['date'] ?? '')
                 . '|' . (string) ($comment['author'] ?? '')
                 . '|' . (string) ($comment['email'] ?? '')
@@ -475,7 +487,6 @@ class CommentsPlugin extends Plugin
             return ['success' => false, 'message' => 'Comment not found.'];
         }
 
-        $trashPath = $this->getTrashPathFromActivePath($filePath);
         $trashDir = dirname($trashPath);
         if (!file_exists($trashDir)) {
             Folder::mkdir($trashDir);
@@ -513,13 +524,13 @@ class CommentsPlugin extends Plugin
         }
 
         array_splice($data['comments'], $targetIndex, 1);
-        $activeFile = File::instance($filePath);
+        $activeFile = File::instance($activePath);
         try {
             $activeFile->save(Yaml::dump($data));
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => 'Failed to update active comments file: ' . $e->getMessage()];
         }
-        if (!file_exists($filePath)) {
+        if (!file_exists($activePath)) {
             return ['success' => false, 'message' => 'Failed to update active comments file (file missing after save).'];
         }
 
@@ -527,19 +538,16 @@ class CommentsPlugin extends Plugin
     }
 
     /**
-     * Map an active comments file path to its trash counterpart.
+     * Map an active comments file path to its relative path.
      */
-    private function getTrashPathFromActivePath(string $filePath): string
+    private function getRelPathFromActivePath(string $filePath): string
     {
-        $activeRoot = DATA_DIR . 'comments';
-        $trashRoot = DATA_DIR . 'comments-trash';
-
+        $activeRoot = DATA_DIR . 'comments/';
         if (Utils::startsWith($filePath, $activeRoot)) {
-            $relativePath = substr($filePath, strlen($activeRoot));
-            return $trashRoot . $relativePath;
+            return ltrim(substr($filePath, strlen($activeRoot)), '/');
         }
 
-        return $trashRoot . '/' . ltrim($filePath, '/');
+        return ltrim($filePath, '/');
     }
 
 

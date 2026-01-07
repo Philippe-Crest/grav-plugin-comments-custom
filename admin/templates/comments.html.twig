@@ -64,7 +64,7 @@
                         var formHtml = '<form method="post" action="' + commentsActionUrl + '" style="display:inline">' +
                             '<input type="hidden" name="task" value="trashComment">' +
                             '<input type="hidden" name="cid" value="' + $('<div/>').text(comment.cid).html() + '">' +
-                            '<input type="hidden" name="filePath" value="' + $('<div/>').text(comment.filePath).html() + '">' +
+                            '<input type="hidden" name="relPath" value="' + $('<div/>').text(comment.relPath).html() + '">' +
                             '<input type="hidden" name="admin-nonce" value="' + $('<div/>').text(adminNonce).html() + '">' +
                             '<button type="submit" class="button button-small button-danger" onclick="return confirm(\\'Supprimer ce commentaire ?\\');">Supprimer</button>' +
                             '</form>';
@@ -115,7 +115,7 @@
                             <form method="post" action="{{ grav.config.plugins.admin.route ~ '/comments' }}" style="display:inline">
                                 <input type="hidden" name="task" value="trashComment">
                                 <input type="hidden" name="cid" value="{{ comment.cid|e('html_attr') }}">
-                                <input type="hidden" name="filePath" value="{{ comment.filePath|e('html_attr') }}">
+                                <input type="hidden" name="relPath" value="{{ comment.relPath|e('html_attr') }}">
                                 <input type="hidden" name="admin-nonce" value="{{ admin.getNonce('admin-form')|e('html_attr') }}">
                                 <button type="submit" class="button button-small button-danger" onclick="return confirm('Supprimer ce commentaire ?');">
                                     Supprimer
