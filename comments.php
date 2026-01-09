@@ -151,22 +151,28 @@ class CommentsPlugin extends Plugin
             'onAdminMenu' => ['onAdminMenu', 0],
             'onDataTypeExcludeFromDataManagerPluginHook' => ['onDataTypeExcludeFromDataManagerPluginHook', 0],
             'onTask.trashComment' => ['onTaskTrashComment', 0],
+            'onTask.restoreTrashComment' => ['onTaskRestoreTrashComment', 0],
         ]);
 
         if (strpos($uri->path(), $this->config->get('plugins.admin.route') . '/' . $this->route) === false) {
             return;
         }
 
-        $page = $this->grav['uri']->param('page');
-        $comments = $this->getLastComments($page);
+        $page = (int) $uri->param('page');
+        $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
 
-        if ($page > 0) {
-            echo json_encode($comments);
-            exit();
+        if ($isAjax && $page > 0) {
+            $mode = $this->getAdminMode();
+            $comments = $mode === 'trash' ? $this->getLastTrashedComments($page) : $this->getLastComments($page);
+            $this->sendJson($comments);
         }
 
+        $mode = $this->getAdminMode();
+        $comments = $mode === 'trash' ? $this->getLastTrashedComments($page) : $this->getLastComments($page);
+
         $this->grav['twig']->comments = $comments;
-        $this->grav['twig']->pages = $this->fetchPages();
+        $this->grav['twig']->pages = $this->fetchPages($mode === 'trash');
+        $this->grav['twig']->comments_mode = $mode;
     }
 
     /**
@@ -184,6 +190,7 @@ class CommentsPlugin extends Plugin
         $eventTask = isset($event['task']) ? (string) $event['task'] : '';
         $postCid = (string) $this->grav['uri']->post('cid');
         $postRelPath = (string) $this->grav['uri']->post('relPath');
+        $postNonce = (string) $this->grav['uri']->post('admin-nonce');
 
         if ($this->grav['config']->get('plugins.comments.debug_tasks')) {
             $this->grav['log']->info(
@@ -220,6 +227,12 @@ class CommentsPlugin extends Plugin
             return;
         }
 
+        if (!$postNonce || !Utils::verifyNonce($postNonce, 'admin-form')) {
+            $this->grav['admin']->setMessage('Invalid security token.', 'error');
+            $this->grav['admin']->redirect($this->route);
+            return;
+        }
+
         $result = $this->trashCommentByCid($relPath, $cid);
         $this->grav['admin']->setMessage(
             $result['message'],
@@ -227,6 +240,65 @@ class CommentsPlugin extends Plugin
         );
         $this->grav['admin']->redirect($this->route);
         $event->stopPropagation();
+    }
+
+    /**
+     * Handle restore comment task (POST).
+     */
+    public function onTaskRestoreTrashComment(Event $event)
+    {
+        if (!$this->isPluginActiveAdmin($this->route)) {
+            return;
+        }
+
+        $postCid = (string) $this->grav['uri']->post('cid');
+        $postRelPath = (string) $this->grav['uri']->post('relPath');
+        $postNonce = (string) $this->grav['uri']->post('admin-nonce');
+
+        if ($postCid === '' || $postRelPath === '') {
+            $this->grav['admin']->setMessage('Missing comment identifier.', 'error');
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
+            return;
+        }
+
+        if (strpos($postRelPath, '..') !== false || Utils::startsWith($postRelPath, '/') || strpos($postRelPath, '\\') !== false) {
+            $this->grav['admin']->setMessage('Invalid comment path.', 'error');
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
+            return;
+        }
+        if (!preg_match('~^[A-Za-z0-9/_\\-.]+\\.yaml$~', $postRelPath)) {
+            $this->grav['admin']->setMessage('Invalid comment path.', 'error');
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
+            return;
+        }
+
+        if (!$postNonce || !Utils::verifyNonce($postNonce, 'admin-form')) {
+            $this->grav['admin']->setMessage('Invalid security token.', 'error');
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
+            return;
+        }
+
+        $result = $this->restoreTrashCommentByCid($postRelPath, $postCid);
+        $this->grav['admin']->setMessage(
+            $result['message'],
+            $result['success'] ? 'success' : 'error'
+        );
+        $this->grav['admin']->redirect($this->getAdminRedirectRoute());
+        $event->stopPropagation();
+    }
+
+    private function getAdminMode(): string
+    {
+        $uri = $this->grav['uri'];
+        $trashParam = (string) $uri->param('trash');
+        $trashQuery = (string) $uri->query('trash');
+
+        return ($trashParam === '1' || $trashQuery === '1') ? 'trash' : 'comments';
+    }
+
+    private function getAdminRedirectRoute(): string
+    {
+        return $this->route . ($this->getAdminMode() === 'trash' ? '/trash:1' : '');
     }
 
     /**
@@ -380,23 +452,22 @@ class CommentsPlugin extends Plugin
             }
 
             for ($i = 0; $i < count($data['comments']); $i++) {
-                $commentTimestamp = \DateTime::createFromFormat('D, d M Y H:i:s', $data['comments'][$i]['date'])->getTimestamp();
-                $activePath = $file->filePath;
-                $relPath = $this->getRelPathFromActivePath($activePath);
+                $commentTimestamp = 0;
+                if (!empty($data['comments'][$i]['date'])) {
+                    $dt = \DateTime::createFromFormat('D, d M Y H:i:s', $data['comments'][$i]['date']);
+                    if ($dt) {
+                        $commentTimestamp = $dt->getTimestamp();
+                    }
+                }
+                $relPath = $this->getRelPathFromActivePath($file->filePath);
                 if ($relPath === '') {
                     continue;
                 }
-                $cidSource = $activePath
-                    . '|' . (string) ($data['comments'][$i]['date'] ?? '')
-                    . '|' . (string) ($data['comments'][$i]['author'] ?? '')
-                    . '|' . (string) ($data['comments'][$i]['email'] ?? '')
-                    . '|' . (string) ($data['comments'][$i]['text'] ?? '');
 
                 $data['comments'][$i]['pageTitle'] = $data['title'];
-                $data['comments'][$i]['filePath'] = $activePath;
                 $data['comments'][$i]['relPath'] = $relPath;
                 $data['comments'][$i]['timestamp'] = $commentTimestamp;
-                $data['comments'][$i]['cid'] = substr(sha1($cidSource), 0, 12);
+                $data['comments'][$i]['cid'] = $this->computeCid($relPath, $data['comments'][$i]);
             }
             if (count($data['comments'])) {
                 $comments = array_merge($comments, $data['comments']);
@@ -405,7 +476,61 @@ class CommentsPlugin extends Plugin
 
         // Order comments by date
         usort($comments, function($a, $b) {
-            return !($a['timestamp'] > $b['timestamp']);
+            return ($b['timestamp'] ?? 0) <=> ($a['timestamp'] ?? 0);
+        });
+
+        $totalAvailable = count($comments);
+        $comments = array_slice($comments, $page * $number, $number);
+        $totalRetrieved = count($comments);
+
+        return (object)array(
+            "comments" => $comments,
+            "page" => $page,
+            "totalAvailable" => $totalAvailable,
+            "totalRetrieved" => $totalRetrieved
+        );
+    }
+
+    private function getLastTrashedComments($page = 0) {
+        $number = 30;
+
+        $files = [];
+        $files = $this->getFilesOrderedByModifiedDate(DATA_DIR . 'comments-trash');
+        $comments = [];
+
+        foreach($files as $file) {
+            $relPath = $this->getRelPathFromTrashPath($file->filePath);
+            $data = $this->getTrashDataFromFilename($relPath);
+            if (!is_array($data) || empty($data['comments'])) {
+                continue;
+            }
+
+            for ($i = 0; $i < count($data['comments']); $i++) {
+                $commentTimestamp = 0;
+                if (!empty($data['comments'][$i]['date'])) {
+                    $dt = \DateTime::createFromFormat('D, d M Y H:i:s', $data['comments'][$i]['date']);
+                    if ($dt) {
+                        $commentTimestamp = $dt->getTimestamp();
+                    }
+                }
+                $relPath = $this->getRelPathFromTrashPath($file->filePath);
+                if ($relPath === '') {
+                    continue;
+                }
+
+                $data['comments'][$i]['pageTitle'] = $data['title'];
+                $data['comments'][$i]['relPath'] = $relPath;
+                $data['comments'][$i]['timestamp'] = $commentTimestamp;
+                $data['comments'][$i]['cid'] = $this->computeCid($relPath, $data['comments'][$i]);
+            }
+            if (count($data['comments'])) {
+                $comments = array_merge($comments, $data['comments']);
+            }
+        }
+
+        // Order comments by date
+        usort($comments, function($a, $b) {
+            return ($b['timestamp'] ?? 0) <=> ($a['timestamp'] ?? 0);
         });
 
         $totalAvailable = count($comments);
@@ -444,9 +569,9 @@ class CommentsPlugin extends Plugin
     /**
      * Return the latest commented pages
      */
-    private function fetchPages() {
+    private function fetchPages(bool $useTrash = false) {
         $files = [];
-        $files = $this->getFilesOrderedByModifiedDate();
+        $files = $this->getFilesOrderedByModifiedDate($useTrash ? DATA_DIR . 'comments-trash' : '');
 
         $pages = [];
 
@@ -482,13 +607,7 @@ class CommentsPlugin extends Plugin
         $targetComment = null;
 
         foreach ($data['comments'] as $index => $comment) {
-            $cidSource = $activePath
-                . '|' . (string) ($comment['date'] ?? '')
-                . '|' . (string) ($comment['author'] ?? '')
-                . '|' . (string) ($comment['email'] ?? '')
-                . '|' . (string) ($comment['text'] ?? '');
-
-            if (substr(sha1($cidSource), 0, 12) === $cid) {
+            if ($this->computeCid($relPath, $comment) === $cid) {
                 $targetIndex = $index;
                 $targetComment = $comment;
                 break;
@@ -565,6 +684,108 @@ class CommentsPlugin extends Plugin
     }
 
     /**
+     * Restore a comment from trash to active by cid.
+     */
+    public function restoreTrashCommentByCid(string $relPath, string $cid): array
+    {
+        $activePath = DATA_DIR . 'comments/' . ltrim($relPath, '/');
+        $trashPath = DATA_DIR . 'comments-trash/' . ltrim($relPath, '/');
+
+        if (!file_exists($trashPath)) {
+            return ['success' => false, 'message' => 'Trash comments file not found.'];
+        }
+
+        $trashData = Yaml::parse(file_get_contents($trashPath));
+        if (!is_array($trashData) || !isset($trashData['comments']) || !is_array($trashData['comments'])) {
+            return ['success' => false, 'message' => 'No comments found in trash file.'];
+        }
+
+        $targetIndex = null;
+        $targetComment = null;
+
+        foreach ($trashData['comments'] as $index => $comment) {
+            if ($this->computeCid($relPath, $comment) === $cid) {
+                $targetIndex = $index;
+                $targetComment = $comment;
+                break;
+            }
+        }
+
+        if ($targetIndex === null) {
+            return ['success' => false, 'message' => 'Comment not found in trash.'];
+        }
+
+        $activeDataBefore = null;
+        $activeFileExists = file_exists($activePath);
+        if ($activeFileExists) {
+            $activeDataBefore = Yaml::parse(file_get_contents($activePath));
+            if (!is_array($activeDataBefore)) {
+                $activeDataBefore = null;
+            }
+        }
+
+        $activeData = $activeDataBefore ?? [
+            'title' => $trashData['title'] ?? null,
+            'lang' => $trashData['lang'] ?? null,
+            'comments' => [],
+        ];
+
+        if (!isset($activeData['comments']) || !is_array($activeData['comments'])) {
+            $activeData['comments'] = [];
+        }
+
+        foreach ($activeData['comments'] as $existingComment) {
+            if ($this->computeCid($relPath, $existingComment) === $cid) {
+                array_splice($trashData['comments'], $targetIndex, 1);
+                $trashFile = File::instance($trashPath);
+                try {
+                    $trashFile->save(Yaml::dump($trashData));
+                } catch (\Throwable $e) {
+                    return ['success' => false, 'message' => 'Failed to update trash file: ' . $e->getMessage()];
+                }
+                return ['success' => true, 'message' => 'Comment already restored.'];
+            }
+        }
+
+        $activeData['comments'][] = $targetComment;
+        $activeDir = dirname($activePath);
+        if (!file_exists($activeDir)) {
+            Folder::mkdir($activeDir);
+        }
+
+        $activeFile = File::instance($activePath);
+        try {
+            $activeFile->save(Yaml::dump($activeData));
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Failed to write active file: ' . $e->getMessage()];
+        }
+        if (!file_exists($activePath)) {
+            return ['success' => false, 'message' => 'Failed to write active file (file missing after save).'];
+        }
+
+        array_splice($trashData['comments'], $targetIndex, 1);
+        $trashFile = File::instance($trashPath);
+        try {
+            $trashFile->save(Yaml::dump($trashData));
+        } catch (\Throwable $e) {
+            $rollbackStatus = $this->rollbackActiveAfterTrashFailure($activePath, $activeDataBefore, $activeFileExists);
+            return [
+                'success' => false,
+                'message' => $this->formatRestoreRollbackFailureMessage($rollbackStatus),
+            ];
+        }
+        if (!file_exists($trashPath)) {
+            $rollbackStatus = $this->rollbackActiveAfterTrashFailure($activePath, $activeDataBefore, $activeFileExists);
+            return [
+                'success' => false,
+                'message' => $this->formatRestoreRollbackFailureMessage($rollbackStatus),
+            ];
+        }
+
+        return ['success' => true, 'message' => 'Comment restored.'];
+    }
+
+    /**
      * Best-effort rollback of trash after active file failure.
      */
     private function rollbackTrashAfterActiveFailure(string $trashPath, ?array $trashDataBefore, bool $trashFileExists): string
@@ -581,6 +802,40 @@ class CommentsPlugin extends Plugin
 
         $bytes = file_put_contents($trashPath, Yaml::dump($trashDataBefore), LOCK_EX);
         return $bytes !== false ? 'ok' : 'failed';
+    }
+
+    /**
+     * Best-effort rollback of active after trash file failure.
+     */
+    private function rollbackActiveAfterTrashFailure(string $activePath, ?array $activeDataBefore, bool $activeFileExists): string
+    {
+        if ($activeDataBefore === null) {
+            if ($activeFileExists) {
+                return 'skipped';
+            }
+            if (file_exists($activePath)) {
+                return unlink($activePath) ? 'ok' : 'failed';
+            }
+            return 'failed';
+        }
+
+        $bytes = file_put_contents($activePath, Yaml::dump($activeDataBefore), LOCK_EX);
+        return $bytes !== false ? 'ok' : 'failed';
+    }
+
+    /**
+     * Format the rollback status message after trash file failure.
+     */
+    private function formatRestoreRollbackFailureMessage(string $rollbackStatus): string
+    {
+        if ($rollbackStatus === 'ok') {
+            return 'Failed to update trash file; active rollback succeeded. Comment should not be duplicated.';
+        }
+        if ($rollbackStatus === 'skipped') {
+            return 'Failed to update trash file; active rollback impossible. Comment may still exist in both locations.';
+        }
+
+        return 'Failed to update trash file; active rollback attempted (status: failed). Comment may still exist in both locations.';
     }
 
     /**
@@ -606,6 +861,19 @@ class CommentsPlugin extends Plugin
         $activeRoot = DATA_DIR . 'comments/';
         if (Utils::startsWith($filePath, $activeRoot)) {
             return ltrim(substr($filePath, strlen($activeRoot)), '/');
+        }
+
+        return '';
+    }
+
+    /**
+     * Map a trash comments file path to its relative path.
+     */
+    private function getRelPathFromTrashPath(string $filePath): string
+    {
+        $trashRoot = DATA_DIR . 'comments-trash/';
+        if (Utils::startsWith($filePath, $trashRoot)) {
+            return ltrim(substr($filePath, strlen($trashRoot)), '/');
         }
 
         return '';
@@ -638,6 +906,68 @@ class CommentsPlugin extends Plugin
             }
         }
         return $data;
+    }
+
+    private function computeCid(string $relPath, array $comment): string
+    {
+        $text = (string) ($comment['text'] ?? '');
+        if ($text !== '') {
+            $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $text = str_replace(["\r\n", "\r"], "\n", $text);
+        }
+
+        $cidSource = $relPath
+            . '|' . (string) ($comment['date'] ?? '')
+            . '|' . (string) ($comment['author'] ?? '')
+            . '|' . (string) ($comment['email'] ?? '')
+            . '|' . $text;
+
+        return substr(sha1($cidSource), 0, 12);
+    }
+
+    /**
+     * Given a trash data file route, return the YAML content already parsed
+     */
+    private function getTrashDataFromFilename($fileRoute) {
+
+        $fileRoute = ltrim((string) $fileRoute, '/');
+
+        //Single item details
+        $fileInstance = File::instance(DATA_DIR . 'comments-trash/' . $fileRoute);
+
+        if (!$fileInstance->content()) {
+            //Item not found
+            return;
+        }
+
+        $data = Yaml::parse($fileInstance->content());
+        if (is_array($data) && isset($data['comments']) && is_array($data['comments'])) {
+            foreach ($data['comments'] as $index => $comment) {
+                if (!empty($comment['text']) && is_string($comment['text'])) {
+                    $data['comments'][$index]['text'] = html_entity_decode(
+                        $comment['text'],
+                        ENT_QUOTES | ENT_HTML5,
+                        'UTF-8'
+                    );
+                }
+            }
+        }
+        return $data;
+    }
+
+    private function sendJson($payload): void
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+        }
+        echo json_encode(
+            $payload,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR
+        );
+        exit;
     }
 
     /**

@@ -49,13 +49,24 @@
         }
     </style>
 
+    {% set is_trash = grav.twig.comments_mode == 'trash' %}
+    {% set commentsBaseUrl = grav.config.plugins.admin.route ~ '/comments' ~ (is_trash ? '/trash:1' : '') %}
+
     <script>
         $(function() {
             var currentPage = 0;
-            var commentsActionUrl = '{{ grav.config.plugins.admin.route }}/comments';
+            var displayedCount = parseInt($('.totalRetrieved').first().text(), 10);
+            if (isNaN(displayedCount)) {
+                displayedCount = 0;
+            }
+            var isTrashMode = {{ is_trash ? 'true' : 'false' }};
+            var commentsBaseUrlJs = '{{ commentsBaseUrl|e("js") }}';
+            var commentsActionUrl = commentsBaseUrlJs;
             var adminNonce = '{{ admin.getNonce("admin-form") }}';
             var deleteButtonText = '{{ "PLUGINS.COMMENTS.DELETE"|t|e("js") }}';
             var deleteConfirmText = '{{ "PLUGINS.COMMENTS.DELETE_CONFIRM"|t|e("js") }}';
+            var restoreButtonText = '{{ "PLUGINS.COMMENTS.RESTORE"|t|e("js") }}';
+            var restoreConfirmText = '{{ "PLUGINS.COMMENTS.RESTORE_CONFIRM"|t|e("js") }}';
 
             function escHtml(value) {
                 return $('<div/>').text(value == null ? '' : String(value)).html();
@@ -65,23 +76,36 @@
                 return confirm(deleteConfirmText);
             });
 
-            $(document).on('click tap', '.js__load-more', function(event) {
+            $(document).on('submit', 'form.js-restore-comment', function () {
+                return confirm(restoreConfirmText);
+            });
+
+            $(document).on('click', '.js__load-more', function(event) {
                event.preventDefault();
 
-               $.getJSON(window.location.pathname + '/page:' + (currentPage + 1))
+               $.ajax({
+                   url: commentsBaseUrlJs + '/page:' + (currentPage + 1),
+                   dataType: 'json',
+                   cache: false
+               })
                 .done(function(response) {
                     currentPage = parseInt(response.page);
 
                     response.comments.forEach(function(comment) {
-                        var formHtml = '<form method="post" action="' + commentsActionUrl + '" class="js-delete-comment" style="display:inline">' +
-                            '<input type="hidden" name="task" value="trashComment">' +
+                        var formClass = isTrashMode ? 'js-restore-comment' : 'js-delete-comment';
+                        var taskValue = isTrashMode ? 'restoreTrashComment' : 'trashComment';
+                        var buttonClass = isTrashMode ? 'button button-small' : 'button button-small button-danger';
+                        var buttonText = isTrashMode ? restoreButtonText : deleteButtonText;
+
+                        var formHtml = '<form method="post" action="' + commentsActionUrl + '" class="' + formClass + '" style="display:inline">' +
+                            '<input type="hidden" name="task" value="' + escHtml(taskValue) + '">' +
                             '<input type="hidden" name="cid" value="' + escHtml(comment.cid) + '">' +
                             '<input type="hidden" name="relPath" value="' + escHtml(comment.relPath) + '">' +
                             '<input type="hidden" name="admin-nonce" value="' + escHtml(adminNonce) + '">' +
-                            '<button type="submit" class="button button-small button-danger">' + escHtml(deleteButtonText) + '</button>' +
+                            '<button type="submit" class="' + buttonClass + '">' + escHtml(buttonText) + '</button>' +
                             '</form>';
 
-                        $('.js__comments-container').append('<tr>' +
+                        $('.js__comments-container').append('<tr class="js-comment-row">' +
                                 '<td class="e author">' + escHtml(comment.author) + '</td>' +
                                 '<td class="v comment">' + escHtml(comment.text) + '</td>' +
                                 '<td class="v details"><strong>Page</strong>: ' + escHtml(comment.pageTitle) + '<br>' +
@@ -90,13 +114,23 @@
                             '</tr>');
                     })
 
-                    var totalRetrieved = response.totalRetrieved * (parseInt(response.page) + 1);
+                    var added = 0;
+                    if (typeof response.totalRetrieved !== 'undefined') {
+                        added = parseInt(response.totalRetrieved, 10);
+                    }
+                    if (!added && response.comments && response.comments.length) {
+                        added = response.comments.length;
+                    }
 
-                    $('.totalRetrieved').html(totalRetrieved);
-                    $('.totalAvailable').html(response.totalAvailable);
+                    displayedCount += added;
+                    $('.totalRetrieved').text(displayedCount);
 
-                    if (totalRetrieved == response.totalAvailable) {
-                        $('.js__load-more').hide();
+                    var totalAvailable = parseInt(response.totalAvailable, 10) || 0;
+                    if (totalAvailable) {
+                        $('.totalAvailable').text(totalAvailable);
+                        if (displayedCount >= totalAvailable) {
+                            $('.js__load-more').hide();
+                        }
                     }
                 })
                 .fail(function(jqxhr) {
@@ -107,7 +141,18 @@
         });
     </script>
 
-    <h1>Comments in the last 7 days</h1>
+    <div class="form-tabs">
+        <div class="tabs-nav">
+            <a href="{{ grav.config.plugins.admin.route ~ '/comments' }}" class="{{ is_trash ? '' : 'active' }}">
+                {{ "PLUGINS.COMMENTS.TAB_COMMENTS"|t }}
+            </a>
+            <a href="{{ grav.config.plugins.admin.route ~ '/comments/trash:1' }}" class="{{ is_trash ? 'active' : '' }}">
+                {{ "PLUGINS.COMMENTS.TAB_TRASH"|t }}
+            </a>
+        </div>
+    </div>
+
+    <h1>{{ is_trash ? "PLUGINS.COMMENTS.TITLE_TRASH"|t : "PLUGINS.COMMENTS.TITLE_COMMENTS"|t }}</h1>
 
     <div class="admin-block">
         <table>
@@ -119,21 +164,33 @@
                     <th class="comments-actions">{{ "PLUGINS.COMMENTS.ACTIONS"|t }}</th>
                 </tr>
                 {% for comment in grav.twig.comments.comments %}
-                    <tr>
+                    <tr class="js-comment-row">
                         <td class="author">{{comment.author}}</td>
                         <td class="comment">{{comment.text}}</td>
                         <td class="details"><strong>Page</strong>: {{comment.pageTitle}}<br>
                         <strong>Date</strong>: {{comment.date}} <span class="comment-cid">{{comment.cid}}</span></td>
                         <td class="comments-actions">
-                            <form method="post" action="{{ grav.config.plugins.admin.route ~ '/comments' }}" class="js-delete-comment" style="display:inline">
-                                <input type="hidden" name="task" value="trashComment">
-                                <input type="hidden" name="cid" value="{{ comment.cid|e('html_attr') }}">
-                                <input type="hidden" name="relPath" value="{{ comment.relPath|e('html_attr') }}">
-                                <input type="hidden" name="admin-nonce" value="{{ admin.getNonce('admin-form')|e('html_attr') }}">
-                                <button type="submit" class="button button-small button-danger">
-                                    {{ "PLUGINS.COMMENTS.DELETE"|t }}
-                                </button>
-                            </form>
+                            {% if is_trash %}
+                                <form method="post" action="{{ commentsBaseUrl }}" class="js-restore-comment" style="display:inline">
+                                    <input type="hidden" name="task" value="restoreTrashComment">
+                                    <input type="hidden" name="cid" value="{{ comment.cid|e('html_attr') }}">
+                                    <input type="hidden" name="relPath" value="{{ comment.relPath|e('html_attr') }}">
+                                    <input type="hidden" name="admin-nonce" value="{{ admin.getNonce('admin-form')|e('html_attr') }}">
+                                    <button type="submit" class="button button-small">
+                                        {{ "PLUGINS.COMMENTS.RESTORE"|t }}
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form method="post" action="{{ commentsBaseUrl }}" class="js-delete-comment" style="display:inline">
+                                    <input type="hidden" name="task" value="trashComment">
+                                    <input type="hidden" name="cid" value="{{ comment.cid|e('html_attr') }}">
+                                    <input type="hidden" name="relPath" value="{{ comment.relPath|e('html_attr') }}">
+                                    <input type="hidden" name="admin-nonce" value="{{ admin.getNonce('admin-form')|e('html_attr') }}">
+                                    <button type="submit" class="button button-small button-danger">
+                                        {{ "PLUGINS.COMMENTS.DELETE"|t }}
+                                    </button>
+                                </form>
+                            {% endif %}
                         </td>
                     </tr>
                 {% endfor %}
@@ -146,11 +203,13 @@
             </button>
         {% endif %}
 
-        <p class="center">{{ "PLUGINS.COMMENTS.SHOWING_COMMENTS"|t([grav.twig.comments.totalRetrieved, grav.twig.comments.totalAvailable]) }}</p>
+        {% set shown = '<span class="totalRetrieved">' ~ (grav.twig.comments.totalRetrieved|default(0)) ~ '</span>' %}
+        {% set total = '<span class="totalAvailable">' ~ (grav.twig.comments.totalAvailable|default(0)) ~ '</span>' %}
+        <p class="center">{{ "PLUGINS.COMMENTS.SHOWING_COMMENTS"|t([shown, total])|raw }}</p>
     </div>
 
     {% if grav.twig.pages %}
-        <h1>Recently commented pages</h1>
+        <h1>{{ is_trash ? "PLUGINS.COMMENTS.RECENTLY_DELETED_PAGES"|t : "PLUGINS.COMMENTS.RECENTLY_COMMENTED_PAGES"|t }}</h1>
 
         <div class="admin-block">
             <table>
