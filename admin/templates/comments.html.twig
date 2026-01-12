@@ -63,6 +63,8 @@
             var commentsBaseUrlJs = '{{ commentsBaseUrl|e("js") }}';
             var commentsActionUrl = commentsBaseUrlJs;
             var adminNonce = '{{ admin.getNonce("admin-form") }}';
+            var canDelete = {{ authorize('admin.comments') ? 'true' : 'false' }};
+            var canRestore = {{ authorize('admin.comments') ? 'true' : 'false' }};
             var deleteButtonText = '{{ "PLUGINS.COMMENTS.DELETE"|t|e("js") }}';
             var deleteConfirmText = '{{ "PLUGINS.COMMENTS.DELETE_CONFIRM"|t|e("js") }}';
             var restoreButtonText = '{{ "PLUGINS.COMMENTS.RESTORE"|t|e("js") }}';
@@ -89,6 +91,11 @@
                    cache: false
                })
                 .done(function(response) {
+                    if (response && response.error) {
+                        alert(response.error);
+                        return;
+                    }
+
                     currentPage = parseInt(response.page);
 
                     response.comments.forEach(function(comment) {
@@ -97,13 +104,16 @@
                         var buttonClass = isTrashMode ? 'button button-small' : 'button button-small button-danger';
                         var buttonText = isTrashMode ? restoreButtonText : deleteButtonText;
 
-                        var formHtml = '<form method="post" action="' + commentsActionUrl + '" class="' + formClass + '" style="display:inline">' +
-                            '<input type="hidden" name="task" value="' + escHtml(taskValue) + '">' +
-                            '<input type="hidden" name="cid" value="' + escHtml(comment.cid) + '">' +
-                            '<input type="hidden" name="relPath" value="' + escHtml(comment.relPath) + '">' +
-                            '<input type="hidden" name="admin-nonce" value="' + escHtml(adminNonce) + '">' +
-                            '<button type="submit" class="' + buttonClass + '">' + escHtml(buttonText) + '</button>' +
-                            '</form>';
+                        var formHtml = '';
+                        if ((isTrashMode && canRestore) || (!isTrashMode && canDelete)) {
+                            formHtml = '<form method="post" action="' + commentsActionUrl + '" class="' + formClass + '" style="display:inline">' +
+                                '<input type="hidden" name="task" value="' + escHtml(taskValue) + '">' +
+                                '<input type="hidden" name="cid" value="' + escHtml(comment.cid) + '">' +
+                                '<input type="hidden" name="relPath" value="' + escHtml(comment.relPath) + '">' +
+                                '<input type="hidden" name="admin-nonce" value="' + escHtml(adminNonce) + '">' +
+                                '<button type="submit" class="' + buttonClass + '">' + escHtml(buttonText) + '</button>' +
+                                '</form>';
+                        }
 
                         $('.js__comments-container').append('<tr class="js-comment-row">' +
                                 '<td class="e author">' + escHtml(comment.author) + '</td>' +
@@ -170,7 +180,7 @@
                         <td class="details"><strong>Page</strong>: {{comment.pageTitle}}<br>
                         <strong>Date</strong>: {{comment.date}} <span class="comment-cid">{{comment.cid}}</span></td>
                         <td class="comments-actions">
-                            {% if is_trash %}
+                            {% if is_trash and authorize('admin.comments') %}
                                 <form method="post" action="{{ commentsBaseUrl }}" class="js-restore-comment" style="display:inline">
                                     <input type="hidden" name="task" value="restoreTrashComment">
                                     <input type="hidden" name="cid" value="{{ comment.cid|e('html_attr') }}">
@@ -180,7 +190,7 @@
                                         {{ "PLUGINS.COMMENTS.RESTORE"|t }}
                                     </button>
                                 </form>
-                            {% else %}
+                            {% elseif not is_trash and authorize('admin.comments') %}
                                 <form method="post" action="{{ commentsBaseUrl }}" class="js-delete-comment" style="display:inline">
                                     <input type="hidden" name="task" value="trashComment">
                                     <input type="hidden" name="cid" value="{{ comment.cid|e('html_attr') }}">

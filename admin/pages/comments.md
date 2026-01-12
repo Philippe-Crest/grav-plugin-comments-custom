@@ -2,6 +2,6 @@
 title: Comments
 
 access:
-    admin.comments: true
-    admin.super: true
+  admin.comments: true
+  admin.super: true
 ---

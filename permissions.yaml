@@ -1,0 +1,3 @@
+actions:
+  admin.comments:
+    label: PLUGINS.COMMENTS.PERMISSION_COMMENTS

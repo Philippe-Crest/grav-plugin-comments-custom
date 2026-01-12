@@ -10,6 +10,8 @@ use Grav\Common\Plugin;
 use Grav\Common\Filesystem\RecursiveFolderFilterIterator;
 use Grav\Common\User\User;
 use Grav\Common\Utils;
+use Grav\Events\PermissionsRegisterEvent;
+use Grav\Framework\Acl\PermissionsReader;
 use RocketTheme\Toolbox\File\File;
 use RocketTheme\Toolbox\Event\Event;
 use Symfony\Component\Yaml\Yaml;
@@ -26,8 +28,21 @@ class CommentsPlugin extends Plugin
     public static function getSubscribedEvents()
     {
         return [
-            'onPluginsInitialized' => ['onPluginsInitialized', 0]
+            'onPluginsInitialized' => ['onPluginsInitialized', 0],
+            PermissionsRegisterEvent::class => ['onRegisterPermissions', 1000],
         ];
+    }
+
+    /**
+     * Register plugin permissions for Admin.
+     *
+     * @param PermissionsRegisterEvent $event
+     * @return void
+     */
+    public function onRegisterPermissions(PermissionsRegisterEvent $event): void
+    {
+        $actions = PermissionsReader::fromYaml('plugin://comments/permissions.yaml');
+        $event->permissions->addActions($actions);
     }
 
     /**
@@ -162,6 +177,10 @@ class CommentsPlugin extends Plugin
         $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
 
         if ($isAjax && $page > 0) {
+            if (!$this->isAuthorized('admin.comments')) {
+                $this->sendJson(['error' => $this->getNotAuthorizedMessage()], 403);
+            }
+
             $mode = $this->getAdminMode();
             $comments = $mode === 'trash' ? $this->getLastTrashedComments($page) : $this->getLastComments($page);
             $this->sendJson($comments);
@@ -184,6 +203,13 @@ class CommentsPlugin extends Plugin
             return;
         }
 
+        if (!$this->isAuthorized('admin.comments')) {
+            $this->grav['admin']->setMessage($this->getNotAuthorizedMessage(), 'error');
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
+            $event->stopPropagation();
+            return;
+        }
+
         $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
         $url = $this->grav['uri']->url();
         $postTask = (string) $this->grav['uri']->post('task');
@@ -199,7 +225,7 @@ class CommentsPlugin extends Plugin
                 . ' post_task=' . $postTask
                 . ' event_task=' . $eventTask
                 . ' post_cid=' . $postCid
-                . ' post_filePath=' . $postFilePath
+                . ' post_relPath=' . $postRelPath
             );
             $this->grav['admin']->setMessage(
                 'DEBUG: onTask.trashComment reached, task=' . ($postTask ?: $eventTask),
@@ -212,24 +238,24 @@ class CommentsPlugin extends Plugin
 
         if ($cid === '' || $relPath === '') {
             $this->grav['admin']->setMessage('Missing comment identifier.', 'error');
-            $this->grav['admin']->redirect($this->route);
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
             return;
         }
 
         if (strpos($relPath, '..') !== false || Utils::startsWith($relPath, '/') || strpos($relPath, '\\') !== false) {
             $this->grav['admin']->setMessage('Invalid comment path.', 'error');
-            $this->grav['admin']->redirect($this->route);
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
             return;
         }
         if (!preg_match('~^[A-Za-z0-9/_\\-.]+\\.yaml$~', $relPath)) {
             $this->grav['admin']->setMessage('Invalid comment path.', 'error');
-            $this->grav['admin']->redirect($this->route);
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
             return;
         }
 
         if (!$postNonce || !Utils::verifyNonce($postNonce, 'admin-form')) {
             $this->grav['admin']->setMessage('Invalid security token.', 'error');
-            $this->grav['admin']->redirect($this->route);
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
             return;
         }
 
@@ -238,7 +264,7 @@ class CommentsPlugin extends Plugin
             $result['message'],
             $result['success'] ? 'success' : 'error'
         );
-        $this->grav['admin']->redirect($this->route);
+        $this->grav['admin']->redirect($this->getAdminRedirectRoute());
         $event->stopPropagation();
     }
 
@@ -248,6 +274,13 @@ class CommentsPlugin extends Plugin
     public function onTaskRestoreTrashComment(Event $event)
     {
         if (!$this->isPluginActiveAdmin($this->route)) {
+            return;
+        }
+
+        if (!$this->isAuthorized('admin.comments')) {
+            $this->grav['admin']->setMessage($this->getNotAuthorizedMessage(), 'error');
+            $this->grav['admin']->redirect($this->getAdminRedirectRoute());
+            $event->stopPropagation();
             return;
         }
 
@@ -299,6 +332,19 @@ class CommentsPlugin extends Plugin
     private function getAdminRedirectRoute(): string
     {
         return $this->route . ($this->getAdminMode() === 'trash' ? '/trash:1' : '');
+    }
+
+    private function isAuthorized(string $permission): bool
+    {
+        $admin = $this->grav['admin'] ?? null;
+        $user = $admin ? $admin->user : ($this->grav['user'] ?? null);
+
+        return $user ? (bool) $user->authorize($permission) : false;
+    }
+
+    private function getNotAuthorizedMessage(): string
+    {
+        return $this->grav['language']->translate('PLUGINS.COMMENTS.NOT_AUTHORIZED');
     }
 
     /**
@@ -680,7 +726,10 @@ class CommentsPlugin extends Plugin
             ];
         }
 
-        return ['success' => true, 'message' => 'Comment moved to trash.'];
+        return [
+            'success' => true,
+            'message' => $this->grav['language']->translate('PLUGINS.COMMENTS.COMMENT_TRASHED'),
+        ];
     }
 
     /**
@@ -782,7 +831,10 @@ class CommentsPlugin extends Plugin
             ];
         }
 
-        return ['success' => true, 'message' => 'Comment restored.'];
+        return [
+            'success' => true,
+            'message' => $this->grav['language']->translate('PLUGINS.COMMENTS.COMMENT_RESTORED'),
+        ];
     }
 
     /**
@@ -955,9 +1007,10 @@ class CommentsPlugin extends Plugin
         return $data;
     }
 
-    private function sendJson($payload): void
+    private function sendJson($payload, $status = 200): void
     {
         if (!headers_sent()) {
+            http_response_code($status);
             header('Content-Type: application/json; charset=utf-8');
             header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
             header('Pragma: no-cache');

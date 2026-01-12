@@ -37,6 +37,10 @@ en:
       AUTHOR: "Author"
       COMMENT: "Comment"
       DETAILS: "Details"
+      PERMISSION_COMMENTS: "Access comments"
+      NOT_AUTHORIZED: "You are not authorized to perform this action."
+      COMMENT_TRASHED: "Comment moved to trash."
+      COMMENT_RESTORED: "Comment restored."
 
 de:
   PLUGIN_COMMENTS:
@@ -59,6 +63,10 @@ de:
     SUBMIT_COMMENT_BUTTON_TEXT: "Absenden"
     EMAIL_NEW_COMMENT_SUBJECT: "[Neuer Kommentar] von {{ form.value.name|e }}"
     THANK_YOU_MESSAGE: "Vielen Dank für den Kommentar!"
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "Kommentar in den Papierkorb verschoben."
+      COMMENT_RESTORED: "Kommentar wiederhergestellt."
 
 es:
   PLUGIN_COMMENTS:
@@ -99,6 +107,10 @@ es:
       AUTHOR: "Autor"
       COMMENT: "Comentario"
       DETAILS: "Detalles"
+      PERMISSION_COMMENTS: "Acceso a comentarios"
+      NOT_AUTHORIZED: "No está autorizado para realizar esta acción."
+      COMMENT_TRASHED: "Comentario movido a la papelera."
+      COMMENT_RESTORED: "Comentario restaurado."
 
 fr:
   PLUGIN_COMMENTS:
@@ -139,6 +151,10 @@ fr:
       AUTHOR: "Auteur"
       COMMENT: "Commentaire"
       DETAILS: "Détails"
+      PERMISSION_COMMENTS: "Accès aux commentaires"
+      NOT_AUTHORIZED: "Vous n'êtes pas autorisé à effectuer cette action."
+      COMMENT_TRASHED: "Commentaire déplacé dans la corbeille."
+      COMMENT_RESTORED: "Commentaire restauré."
 
 hr:
   PLUGIN_COMMENTS:
@@ -161,6 +177,10 @@ hr:
     SUBMIT_COMMENT_BUTTON_TEXT: "Pošalji"
     EMAIL_NEW_COMMENT_SUBJECT: "[Novi komentar] od {{ form.value.name|e }}"
     THANK_YOU_MESSAGE: "Hvala Vam što ste napisali svoj komentar!"
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "Komentar je premješten u smeće."
+      COMMENT_RESTORED: "Komentar je vraćen."
 
 it:
   PLUGIN_COMMENTS:
@@ -183,6 +203,10 @@ it:
     SUBMIT_COMMENT_BUTTON_TEXT: "Invia"
     EMAIL_NEW_COMMENT_SUBJECT: "[Nuovo commento] da {{ form.value.name|e }}"
     THANK_YOU_MESSAGE: "Grazie per il tuo commento!"
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "Commento spostato nel cestino."
+      COMMENT_RESTORED: "Commento ripristinato."
 
 ja:
   PLUGIN_COMMENTS:
@@ -205,6 +229,10 @@ ja:
     SUBMIT_COMMENT_BUTTON_TEXT: "送信"
     EMAIL_NEW_COMMENT_SUBJECT: "[新しいコメント] {{ form.value.name|e }}から"
     THANK_YOU_MESSAGE: "コメントありがとうございます！"
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "コメントをゴミ箱に移動しました。"
+      COMMENT_RESTORED: "コメントを復元しました。"
 
 nl:
   PLUGIN_COMMENTS:
@@ -227,6 +255,10 @@ nl:
     SUBMIT_COMMENT_BUTTON_TEXT: "Verstuur"
     EMAIL_NEW_COMMENT_SUBJECT: "[Nieuwe reactie] van {{ form.value.name|e }}"
     THANK_YOU_MESSAGE: "Bedankt voor je reactie!"
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "Reactie naar prullenbak verplaatst."
+      COMMENT_RESTORED: "Reactie hersteld."
 
 pl:
   PLUGIN_COMMENTS:
@@ -240,6 +272,10 @@ pl:
     EMAIL: Email:
     WRITTEN_ON: Napisany przez
     BY: przez
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "Komentarz przeniesiono do kosza."
+      COMMENT_RESTORED: "Komentarz przywrócono."
 
 ru:
   PLUGIN_COMMENTS:
@@ -262,6 +298,10 @@ ru:
     SUBMIT_COMMENT_BUTTON_TEXT: "Отправить"
     EMAIL_NEW_COMMENT_SUBJECT: "[Новый комментарий] от {{ form.value.name|e }}"
     THANK_YOU_MESSAGE: "Благодарим за ваш комментарий!"
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "Комментарий перемещен в корзину."
+      COMMENT_RESTORED: "Комментарий восстановлен."
 
 pt-br:
   PLUGIN_COMMENTS:
@@ -284,6 +324,10 @@ pt-br:
     SUBMIT_COMMENT_BUTTON_TEXT: "Enviar"
     EMAIL_NEW_COMMENT_SUBJECT: "[Novo comentário] de {{ form.value.name|e }}"
     THANK_YOU_MESSAGE: "Obrigada por enviar seu comentário!"
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "Comentário movido para a lixeira."
+      COMMENT_RESTORED: "Comentário restaurado."
 
 ro:
   PLUGIN_COMMENTS:
@@ -306,6 +350,10 @@ ro:
     SUBMIT_COMMENT_BUTTON_TEXT: "Trimiteți"
     EMAIL_NEW_COMMENT_SUBJECT: "[Comentariu nou] from {{ form.value.name|e }}"
     THANK_YOU_MESSAGE: "Vă mulțumim pentru comentariu!"
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "Comentariul a fost mutat la coș."
+      COMMENT_RESTORED: "Comentariul a fost restaurat."
 
 no:
   PLUGIN_COMMENTS:
@@ -328,3 +376,7 @@ no:
     SUBMIT_COMMENT_BUTTON_TEXT: "Send"
     EMAIL_NEW_COMMENT_SUBJECT: "[Ny kommentar] fra {{ form.value.name|e }}"
     THANK_YOU_MESSAGE: "Takk for din kommentar!"
+  PLUGINS:
+    COMMENTS:
+      COMMENT_TRASHED: "Kommentar flyttet til papirkurven."
+      COMMENT_RESTORED: "Kommentar gjenopprettet."
