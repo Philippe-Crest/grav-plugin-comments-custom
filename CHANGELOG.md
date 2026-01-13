@@ -1,3 +1,39 @@
+# Changelog
+
+This file documents notable changes in this community-maintained fork of the Grav Comments plugin.
+
+The upstream plugin (Comments v1.2.8) has been deprecated. This fork focuses on improving **a posteriori** comment management in the Grav Admin while preserving frontend behavior and the existing YAML storage format.
+
+---
+
+## [1.2.8-dvst.1] - 2026-01-13
+
+### Added
+- Admin: non-destructive comment deletion using a Trash workflow.
+  - Comments are moved to `user/data/comments-trash/<lang>/<route>.yaml`.
+  - Restore from Trash is supported (idempotent; no duplication).
+- Admin: Trash tab in the Comments Admin interface.
+- Admin: pagination ("Load more") for both Active comments and Trash.
+- Admin: reliable counters (shown vs total) for large comment sets.
+- Admin: unified permission model using a single permission `admin.comments`.
+- Admin: localized messages for key actions (fr / en / es, where available).
+
+### Changed
+- Admin: internal computed comment identifier (CID) remains in server logic
+  but is no longer displayed in the Admin UI.
+
+### Security
+- Admin: strict nonce verification for destructive actions.
+- Admin: controlled relative paths (`relPath`) to prevent path traversal.
+- Admin: hardened AJAX pagination with authorization checks and JSON error handling.
+
+---
+
+### Notes
+- No changes were made to public frontend rendering.
+- No changes were made to the existing YAML comment data format.
+- This release is intended for manual installation (community fork, not distributed via GPM).
+
 # v1.2.8
 ## 09/10/2020
 
