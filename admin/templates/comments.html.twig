@@ -119,7 +119,7 @@
                                 '<td class="e author">' + escHtml(comment.author) + '</td>' +
                                 '<td class="v comment">' + escHtml(comment.text) + '</td>' +
                                 '<td class="v details"><strong>Page</strong>: ' + escHtml(comment.pageTitle) + '<br>' +
-                                '<strong>Date</strong>: ' + escHtml(comment.date) + ' <span class="comment-cid">' + escHtml(comment.cid) + '</span></td>' +
+                                '<strong>Date</strong>: ' + escHtml(comment.date) + '</td>' +
                                 '<td class="v comments-actions">' + formHtml + '</td>' +
                             '</tr>');
                     })
@@ -178,7 +178,7 @@
                         <td class="author">{{comment.author}}</td>
                         <td class="comment">{{comment.text}}</td>
                         <td class="details"><strong>Page</strong>: {{comment.pageTitle}}<br>
-                        <strong>Date</strong>: {{comment.date}} <span class="comment-cid">{{comment.cid}}</span></td>
+                        <strong>Date</strong>: {{comment.date}}</td>
                         <td class="comments-actions">
                             {% if is_trash and authorize('admin.comments') %}
                                 <form method="post" action="{{ commentsBaseUrl }}" class="js-restore-comment" style="display:inline">
