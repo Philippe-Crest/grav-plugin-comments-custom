@@ -1,6 +1,47 @@
+# Grav Comments Plugin (Community-Maintained Fork)
+
+> ⚠️ **Community-maintained fork notice**
+>
+> This repository is a community-maintained fork of the Grav **Comments** plugin (upstream deprecated / unsupported).
+> This fork improves **a posteriori comment management in the Grav Admin** while preserving:
+> - frontend behavior,
+> - existing YAML storage format,
+> - compatibility with Comments v1.2.8 data layout.
+>
+> ---
+>
+> ## Installation (this fork)
+>
+> The upstream command below:
+> ```bash
+> bin/gpm install comments
+> ```
+> installs the **deprecated upstream** plugin from the Grav package repository, not this fork.
+>
+> To install this fork, use one of the following:
+> 1. Download a release ZIP from this repository and extract it into `user/plugins/comments/` (replacing the existing plugin), or
+> 2. Clone this repository into `user/plugins/comments/`:
+> ```bash
+> git clone https://github.com/Philippe-Crest/grav-plugin-comments-custom.git user/plugins/comments
+> ```
+>
+> ---
+>
+> ## Fork-specific additions (Admin only)
+> - Non-destructive deletion (Trash) and restore
+> - Trash tab + pagination ("Load more") for Active and Trash lists
+> - Single Admin permission: `admin.comments`
+> - Localized Admin messages (fr/en/es where available)
+>
+> Explicitly out of scope: a priori moderation, comment editing, frontend changes, storage format changes.
+>
+> ---
+
 # Grav Comments Plugin
 
 The **Comments Plugin** for [Grav](http://github.com/getgrav/grav) adds the ability to add comments to pages, and moderate them.
+
+**Fork note:** Upstream moderation features are not developed further here. This fork focuses on **a posteriori** comment management in the Grav Admin (Trash/Restore), without changing frontend rendering.
 
 # Installation
 
