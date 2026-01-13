@@ -6,6 +6,11 @@ The upstream plugin (Comments v1.2.8) has been deprecated. This fork focuses on 
 
 ---
 
+## [1.2.8-dvst.2] - 2026-01-13
+
+### Security
+- Docs: sanitize example reCAPTCHA keys in configuration file (placeholders only).
+
 ## [1.2.8-dvst.1] - 2026-01-13
 
 ### Added
