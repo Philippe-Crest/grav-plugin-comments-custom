@@ -53,7 +53,7 @@ form:
 #        - name: g-recaptcha-response
 #          label: Captcha
 #          type: captcha
-#          recaptcha_site_key: e32iojeoi32jeoi32jeoij32oiej32oiej3
+#          recaptcha_site_key: YOUR_RECAPTCHA_SITE_KEY
 #          recaptcha_not_validated: 'Captcha not valid!'
 #          validate:
 #            required: true
@@ -66,7 +66,7 @@ form:
 
     process:
 #        - captcha:
-#            recaptcha_secret: ej32oiej23oiej32oijeoi32jeio32je
+#            recaptcha_secret: YOUR_RECAPTCHA_SITE_KEY
         - email:
             subject: PLUGIN_COMMENTS.EMAIL_NEW_COMMENT_SUBJECT
             body: "{% include 'forms/data.html.twig' %}"
