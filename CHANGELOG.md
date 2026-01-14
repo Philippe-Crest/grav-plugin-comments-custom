@@ -6,31 +6,30 @@ The upstream plugin (Comments v1.2.8) has been deprecated. This fork focuses on 
 
 ---
 
-## [1.2.8-dvst.2] - 2026-01-13
+# v1.2.8-dvst.2
+## 13/01/2026
 
-### Security
-- Docs: sanitize example reCAPTCHA keys in configuration file (placeholders only).
+1. [](#bugfix)
+    * Docs: sanitize example reCAPTCHA keys in configuration file (placeholders only).
 
-## [1.2.8-dvst.1] - 2026-01-13
+# v1.2.8-dvst.1
+## 13/01/2026
 
-### Added
-- Admin: non-destructive comment deletion using a Trash workflow.
-  - Comments are moved to `user/data/comments-trash/<lang>/<route>.yaml`.
-  - Restore from Trash is supported (idempotent; no duplication).
-- Admin: Trash tab in the Comments Admin interface.
-- Admin: pagination ("Load more") for both Active comments and Trash.
-- Admin: reliable counters (shown vs total) for large comment sets.
-- Admin: unified permission model using a single permission `admin.comments`.
-- Admin: localized messages for key actions (fr / en / es, where available).
+1. [](#new)
+    * Admin: non-destructive comment deletion using a Trash workflow.
+    * Admin: Trash tab in the Comments Admin interface.
+    * Admin: pagination ("Load more") for both Active comments and Trash.
+    * Admin: reliable counters (shown vs total) for large comment sets.
+    * Admin: unified permission model using a single permission `admin.comments`.
+    * Admin: localized Admin messages for key actions (fr / en / es, where available).
 
-### Changed
-- Admin: internal computed comment identifier (CID) remains in server logic
-  but is no longer displayed in the Admin UI.
+2. [](#improved)
+    * Admin: internal computed comment identifier (CID) remains in server logic but is no longer displayed in the Admin UI.
 
-### Security
-- Admin: strict nonce verification for destructive actions.
-- Admin: controlled relative paths (`relPath`) to prevent path traversal.
-- Admin: hardened AJAX pagination with authorization checks and JSON error handling.
+3. [](#bugfix)
+    * Admin: strict nonce verification for destructive actions.
+    * Admin: controlled relative paths (`relPath`) to prevent path traversal.
+    * Admin: hardened AJAX pagination with authorization checks and JSON error handling.
 
 ---
 
