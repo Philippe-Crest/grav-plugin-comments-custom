@@ -1,8 +1,8 @@
-name: Comments
+name: Comments (Unofficial Fork)
 type: plugin
 slug: comments
 version: 1.2.8
-description: Adds a commenting functionality to your site
+description: Unofficial fork of Grav Comments 1.2.8. Adds only post-moderation tools in Admin (trash and restore). No frontend changes or YAML storage format changes.
 icon: comment
 author:
   name: Team Grav
