@@ -5,13 +5,13 @@ version: 1.2.8
 description: Unofficial fork of Grav Comments 1.2.8. Adds only post-moderation tools in Admin (trash and restore). No frontend changes or YAML storage format changes.
 icon: comment
 author:
-  name: Team Grav
-  email: devs@getgrav.org
-  url: http://getgrav.org
-homepage: https://github.com/getgrav/grav-plugin-comments
-keywords: guestbook, plugin
-bugs: https://github.com/getgrav/grav-plugin-comments/issues
-readme: https://github.com/getgrav/grav-plugin-comments/blob/develop/README.md
+  name: DVST (Unofficial fork maintainer)
+  url: https://github.com/Philippe-Crest/grav-plugin-comments-custom/tree/release/1.2.8-dvst.1
+homepage: https://github.com/Philippe-Crest/grav-plugin-comments-custom/tree/release/1.2.8-dvst.1
+keywords: comments, moderation, admin, guestbook, plugin
+bugs: https://github.com/Philippe-Crest/grav-plugin-comments-custom/issues
+readme: https://github.com/Philippe-Crest/grav-plugin-comments-custom/blob/release/1.2.8-dvst.1/README.md
+changelog: https://github.com/Philippe-Crest/grav-plugin-comments-custom/blob/release/1.2.8-dvst.1/CHANGELOG.md
 license: MIT
 
 dependencies:
