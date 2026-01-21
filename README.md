@@ -17,6 +17,8 @@ This repository is a **community-maintained fork** of the deprecated Grav Commen
 I am not a professional developer, and this fork does not aim to take over
 maintenance of the original plugin or to provide a full-featured replacement.
 
+**Important (scope):** This is an **Admin-only** fork. It **does not change anything on the frontend** (templates, rendering, forms, routes behavior beyond what upstream already does). Installing this fork will **not** make comments appear on your pages if they were not already working. It only adds **post-moderation tools in the Grav Admin** (trash/restore, pagination, counters, permission).
+
 The scope is intentionally limited:
 - provide **minimal Admin-side improvements** for a posteriori comment management,
 - help existing Grav sites address practical **a posteriori moderation** needs without changing frontend behavior,
@@ -101,6 +103,8 @@ For example, in Antimatter, in `templates/item.html.twig`:
 The comment form will appear on the blog post items matching the enabled routes.
 
 To set the enabled routes, create a `user/config/plugins/comments.yaml` file, copy in it the contents of `user/plugins/comments/comments.yaml` and edit the `enable_on_routes` and `disable_on_routes` options according to your needs.
+
+`enable_on_routes` controls **where comments are enabled** (upstream behavior). It does not change your theme/templates. If comments are not displayed, ensure your page template includes comments and that the upstream Comments plugin is correctly configured.
 
 > Make sure you configured the "Email from" and "Email to" email addresses in the Email plugin with your email address!
 
