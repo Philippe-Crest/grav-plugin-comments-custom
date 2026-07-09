@@ -1,8 +1,8 @@
 name: Comments (Unofficial Fork)
 type: plugin
 slug: comments
-version: 1.2.8
-description: Unofficial fork of Grav Comments 1.2.8. Adds only post-moderation tools in Admin (trash and restore). No frontend changes or YAML storage format changes.
+version: 1.2.9
+description: "Unofficial fork of Grav Comments 1.2.8. Adds only post-moderation tools in Admin (trash and restore). No frontend changes or YAML storage format changes. Do not update this plugin via Grav Admin or GPM; updates must be managed through this custom fork."
 icon: comment
 author:
   name: DVST (Unofficial fork maintainer)
